@@ -1,0 +1,83 @@
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use rand::Rng;
+use std::vec::Vec;
+
+
+fn main() {
+    let file = File::open("data/matching_1000.txt").expect("Cannot open file");
+    // let file = File::open("data/pw09_100.9.txt").expect("Cannot open file");
+    let reader = BufReader::new(file);
+
+    let mut lines = reader.lines();
+
+    let first_line = lines.next().unwrap().unwrap().split_whitespace()
+        .map(|s| s.parse().unwrap())
+        .collect::<Vec<i32>>();
+    let edges: Vec<Vec<i32>> = lines
+        .map(|line_result| {
+            let line = line_result.unwrap();
+            line.split_whitespace()
+                .map(|s| s.parse().unwrap())
+                .collect()
+        }).collect();
+
+
+    let nodes = first_line[0];
+    let weights = first_line[1];
+    println!("Nodes: {}, Weights: {}", nodes, weights);
+
+    println!("R maxcut: {}", maxcut_r(nodes, edges.clone()));
+    println!("S maxcut: {}", maxcut_s(nodes, edges.clone()));
+
+}
+
+fn maxcut_r(nodes: i32, edges: Vec<Vec<i32>>) -> i32 {
+    let mut rng = rand::thread_rng();
+    let mut graph_a = Vec::new();
+    let mut graph_b = Vec::new();
+
+    for i in 0..nodes {
+        if rng.gen() {
+            graph_a.push(i);
+        } else {
+            graph_b.push(i);
+        }
+    }
+    cut(graph_a, graph_b, edges)
+}
+
+
+fn maxcut_s(nodes: i32, edges: Vec<Vec<i32>>) -> i32 {
+    let mut graph_a: HashSet<i32> = HashSet::new();
+    let mut graph_b: HashSet<i32> = (1..=nodes).collect();
+
+    let edges_ref = &edges;
+    let mut prev_cut = -1;
+    let mut best_cut = cut(&graph_a, &graph_b, edges_ref);
+
+    while best_cut > prev_cut {
+        prev_cut = best_cut;
+        for i in 0..nodes as usize {
+            if graph_b.contains(&i) {
+                graph_a.insert(i);
+                graph_b.remove(&i);
+                let cut = cut(&graph_a, &graph_b, edges_ref);
+                if cut > best_cut {
+                    best_cut = cut;
+                } else {
+                    graph_a.remove(&i);
+                    graph_b.insert(i);
+                }
+            }
+        }
+    }
+    best_cut
+}
+
+fn cut(graph_a: Vec<i32>, graph_b: Vec<i32>, edges: Vec<Vec<i32>>) -> i32 {
+    edges.iter().filter(|edge| {
+        (graph_a.contains(&edge[0]) && graph_b.contains(&edge[1])) ||
+        (graph_b.contains(&edge[0]) && graph_a.contains(&edge[1]))
+    }).map(|edge| edge[2]).sum()
+}
